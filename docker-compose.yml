@@ -1,0 +1,50 @@
+services:
+  mock-printer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pom-mock-printer
+    command: ["python", "mock_printer.py"]
+    ports:
+      - "9000:9000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - pom-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pom-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - pom-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_URL=http://backend:8000
+    container_name: pom-frontend
+    ports:
+      - "8080:8080"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - NODE_ENV=production
+    depends_on:
+      - mock-printer
+      - backend
+    restart: unless-stopped
+    networks:
+      - pom-network
+
+networks:
+  pom-network:
+    driver: bridge
