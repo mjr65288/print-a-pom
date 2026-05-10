@@ -117,7 +117,8 @@ When using Docker Compose, a mock printer service is available by default.
 3. In the Connect field, use printer IP:
 
    ```text
-   mock-printer:9000
+   http://mock-printer:9000
+
    ```
 
 This works because both backend and mock-printer run on the same Compose network.
