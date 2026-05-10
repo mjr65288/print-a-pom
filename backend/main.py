@@ -98,26 +98,30 @@ class FilamentRequest(BaseModel):
 @app.post("/api/connect")
 async def connect(req: ConnectRequest):
     try:
+        base = req.ip.strip().rstrip("/")
+
+        if base.startswith("http://") or base.startswith("https://"):
+            printer_base_url = base
+        elif "localhost" in base or "127.0.0.1" in base:
+            printer_base_url = f"http://{base}"
+        else:
+            printer_base_url = f"https://{base}"
+
         async with httpx.AsyncClient(timeout=10.0) as client:
-            # First verify we can reach the printer
-            status_resp = await client.get(f"http://{req.ip}/status")
+            status_resp = await client.get(f"{printer_base_url}/status")
             if status_resp.status_code != 200:
-                #  printer responds but with bad data
                 raise HTTPException(status_code=502, detail="Printer did not respond to status check")
 
-            # Connect and get session token
-            connect_resp = await client.post(f"http://{req.ip}/connect")
+            connect_resp = await client.post(f"{printer_base_url}/connect")
             if connect_resp.status_code != 200:
-                #  printer refused connection
                 raise HTTPException(status_code=502, detail="Printer refused connection")
 
             data = connect_resp.json()
             token = data.get("session_token")
             if not token:
-                #  printer returned no session token
                 raise HTTPException(status_code=502, detail="No session token returned")
 
-            printer_state["ip"] = req.ip
+            printer_state["ip"] = printer_base_url
             printer_state["session_token"] = token
             printer_state["connected"] = True
             printer_state["printing"] = False
@@ -125,14 +129,13 @@ async def connect(req: ConnectRequest):
             printer_state["print_total"] = 0
             printer_state["print_cancelled"] = False
 
-            logger.info(f"Connected to printer at {req.ip}")
-            return {"success": True, "session_token": token, "ip": req.ip}
+            logger.info(f"Connected to printer at {printer_base_url}")
+            return {"success": True, "session_token": token, "ip": printer_base_url}
 
     except httpx.ConnectError:
         raise HTTPException(status_code=502, detail=f"Cannot reach printer at {req.ip}")
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=f"Timeout connecting to printer at {req.ip}")
-
 
 @app.post("/api/disconnect")
 async def disconnect():
