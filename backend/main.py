@@ -46,7 +46,19 @@ BATCH_SIZE = 20
 def get_printer_url(path: str) -> str:
     if not printer_state["ip"]:
         raise HTTPException(status_code=400, detail="Not connected to any printer")
-    return f"http://{printer_state['ip']}{path}"
+
+    base = printer_state["ip"]
+
+    # If protocol already provided, use it as-is
+    if base.startswith("http://") or base.startswith("https://"):
+        return f"{base}{path}"
+
+    # Localhost should default to HTTP
+    if "localhost" in base or "127.0.0.1" in base:
+        return f"http://{base}{path}"
+
+    # Cloud deployments default to HTTPS
+    return f"https://{base}{path}"
 
 
 def get_headers() -> dict:
